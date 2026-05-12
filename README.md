@@ -65,9 +65,9 @@ llm-from-scratch/
 
 | Notebook | Description |
 |---|---|
-| `ch1_llm_overview.ipynb` | Introduction to LLMs and GPT architecture |
-| `ch2_text_data.ipynb` | Text preprocessing, tokenization, and vocabulary creation |
-| `ch5_Pretraining.ipynb` | GPT pretraining workflow, logits, loss calculation, and generation |
+| [ch1_llm_overview.ipynb](notebooks/ch1_llm_overview.ipynb) | Introduction to LLMs and GPT architecture |
+| [ch2_text_data.ipynb](notebooks/ch2_text_data.ipynb) | Text preprocessing, tokenization, and vocabulary creation |
+| [ch5_Pretraining.ipynb](notebooks/ch5_Pretraining.ipynb) | GPT pretraining workflow, logits, loss calculation, and generation |
 
 ---
 
