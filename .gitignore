@@ -1,8 +1,22 @@
+# Model weights and checkpoints
 *.pt
 *.pth
 *.ckpt
 *.bin
-__pycache__/
-.env
 models/
 checkpoints/
+gpt2/
+
+# Secrets and environment files
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Large/source learning materials that should not be committed
+Build_a_Large_Language_Model*.pdf
+
+# Local notebook artifacts
+.ipynb_checkpoints/
