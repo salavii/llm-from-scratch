@@ -1,0 +1,8 @@
+*.pt
+*.pth
+*.ckpt
+*.bin
+__pycache__/
+.env
+models/
+checkpoints/
