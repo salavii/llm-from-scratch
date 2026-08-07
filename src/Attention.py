@@ -65,10 +65,15 @@ class MultiHeadAttention(nn.Module):
         self.W_value = nn.Linear(d_in, d_out, bias= qkv_bias) 
         self.out_proj = nn.Linear(d_out, d_out)  # This layer mixes information across different attention heads
         self.dropout = nn.Dropout(dropout)
+        # persistent=False keeps the causal mask out of state_dict(). It is
+        # derived from context_length, not learned, so storing it only bloats
+        # checkpoints (~100 MB for a 24-layer, 1024-context model) and makes
+        # them fail to load into a model built with a different context_length.
         self.register_buffer(
                              "mask",
                               torch.triu(torch.ones(context_length, context_length),
-                              diagonal=1)
+                              diagonal=1),
+                              persistent=False
                             )
 
     def forward(self, x):
@@ -258,6 +263,41 @@ def token_ids_to_text(token_ids, tokenizer):
     return tokenizer.decode(flat.tolist())
 
 
+def format_input(entry):
+    """Render an instruction entry in the Alpaca prompt style.
+
+    Kept here rather than inline in Ch7 because inference must use the exact
+    same template the model was fine-tuned on -- a second, drifting copy would
+    silently degrade generation quality.
+    """
+    instruction_text = (
+        f"Below is an instruction that describes a task. "
+        f"Write a response that appropriately completes the request."
+        f"\n\n### Instruction:\n{entry['instruction']}"
+    )
+    input_text = (
+        f"\n\n### Input:\n{entry['input']}" if entry["input"] else ""
+    )
+    return instruction_text + input_text
+
+
+
+
+def load_gpt_state_dict(model, state_dict, **kwargs):
+    """Load GPT weights, tolerating checkpoints saved before the causal mask
+    became a non-persistent buffer.
+
+    Those older files carry `trf_blocks.*.att.mask` entries that the model no
+    longer registers, so a strict load rejects them as unexpected keys. The mask
+    is derived from context_length rather than learned, so dropping it is
+    lossless. Everything else still loads strictly, so genuine mismatches
+    (wrong model size, missing layers) are still caught.
+    """
+    legacy = [k for k in state_dict if k.endswith(".mask")]
+    if legacy:
+        print(f"Dropping {len(legacy)} legacy causal-mask buffer(s) from checkpoint.")
+        state_dict = {k: v for k, v in state_dict.items() if not k.endswith(".mask")}
+    return model.load_state_dict(state_dict, **kwargs)
 
 
 # This prevents silent errors and ensures correct weight mapping
@@ -418,15 +458,22 @@ def train_model_simple(
 
 
 
-def evaluate_model(model, train_loader, val_loader, device, eval_iter):
+def evaluate_model(model, train_loader, val_loader, device, eval_iter,
+                   loss_fn=None):
+    """Average train/val loss over `eval_iter` batches.
+
+    loss_fn: per-batch loss function, defaults to calc_loss_batch (language
+    modelling). Ch6 passes its classification variant instead, so both chapters
+    share this one implementation.
+    """
     model.eval()  # switch to evaluation mode
 
     with torch.no_grad():  # disable gradient tracking
         train_loss = calc_loss_loader(
-            train_loader, model, device, num_batches=eval_iter
+            train_loader, model, device, num_batches=eval_iter, loss_fn=loss_fn
         )
         val_loss = calc_loss_loader(
-            val_loader, model, device, num_batches=eval_iter
+            val_loader, model, device, num_batches=eval_iter, loss_fn=loss_fn
         )
 
     model.train()  # switch back to training mode
@@ -465,7 +512,18 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     model.train()
 
 
-def calc_loss_loader(data_loader, model, device, num_batches=None):
+def calc_loss_loader(data_loader, model, device, num_batches=None, loss_fn=None):
+    """Average the per-batch loss over up to `num_batches` batches.
+
+    loss_fn: per-batch loss function with the signature
+    (input_batch, target_batch, model, device) -> scalar tensor. Defaults to
+    calc_loss_batch (language modelling); Ch6 passes calc_loss_batch_classifier
+    so that classification fine-tuning reuses this same loop rather than
+    maintaining a second copy of it.
+    """
+    if loss_fn is None:
+        loss_fn = calc_loss_batch
+
     total_loss = 0.0
 
     # if the data loader is empty, return NaN
@@ -485,7 +543,7 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
         if i >= num_batches:
             break
 
-        loss = calc_loss_batch(
+        loss = loss_fn(
             input_batch, target_batch, model, device
         )
 

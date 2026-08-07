@@ -62,6 +62,30 @@ ollama pull llama3:8b
 
 ---
 
+## ✅ Tests
+
+```bash
+pytest tests/
+```
+
+CPU-only, a few seconds. The suite is deliberately small and every test pins a defect that actually shipped in this repo:
+
+| Test | Guards against |
+|---|---|
+| `test_initial_loss_matches_uniform_baseline` | An untrained model must score ≈ `ln(50257)` = 10.82. The loss-averaging bug showed up here as **1.22 instead of 10.99** — this one test would have caught it on day one. |
+| `test_calc_loss_loader_averages_over_all_batches` | A `return` that sat inside the batch loop, so only the first batch counted. |
+| `test_layernorm_survives_zero_variance` | `sqrt(var - eps)` instead of `sqrt(var + eps)`, which returns NaN when variance is below epsilon. |
+| `test_causal_mask_excluded_from_state_dict` | The causal mask being persisted into every checkpoint. |
+| `test_notebook_defs_match_src` | **Notebook/`src` drift** — see below. |
+
+**On drift.** The notebooks define the components each chapter teaches, so several definitions exist twice: once inline, once in `src/Attention.py`. That is intentional — reading ch4 should show you a `LayerNorm`, not an import. It stopped being harmless when `calc_loss_loader` existed three times, broken in two of them and quietly corrected in the third, with nothing marking which was canonical.
+
+`test_notebook_defs_match_src` parses every notebook and asserts that any definition sharing a name with `src/Attention.py` is structurally identical to it. Implementations that are genuinely different get their own name — `calc_loss_batch_classifier`, `SelfAttention_V1`, `DummyGPTModel` — which is clearer for a reader anyway.
+
+> **Loading older checkpoints.** The causal mask is now a non-persistent buffer, so checkpoints saved before that change carry `trf_blocks.*.att.mask` keys the model no longer expects. `load_gpt_state_dict(model, state_dict)` drops them; every other key still loads strictly, so real mismatches are still errors. The notebooks use it at all checkpoint-load sites.
+
+---
+
 ## 🏗️ Architecture (implemented from scratch)
 
 ```
@@ -172,6 +196,7 @@ llm-from-scratch/
 ├── data/                              # Datasets (see NOTICE for provenance)
 ├── images/                            # Figures used by the notebooks
 ├── checkpoints/                       # Trained weights (git-ignored, created on demand)
+├── tests/                             # Regression tests (pytest tests/)
 ├── requirements.txt
 ├── LICENSE                            # Apache 2.0
 └── NOTICE                             # Third-party attributions
