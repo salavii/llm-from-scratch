@@ -20,3 +20,7 @@ Build_a_Large_Language_Model*.pdf
 
 # Local notebook artifacts
 .ipynb_checkpoints/
+
+# Datasets downloaded at runtime by the notebooks
+data/sms_spam_collection/
+data/sms_spam_collection.zip
