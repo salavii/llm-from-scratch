@@ -1,9 +1,12 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
-import torch.nn as nn
-import tiktoken
-tokenizer = tiktoken.get_encoding("gpt2")
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import tiktoken
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+
+tokenizer = tiktoken.get_encoding("gpt2")
 
 
 class GPTDatasetV1(Dataset):
@@ -110,7 +113,7 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True)
         var = x.var(dim=-1, keepdim=True, unbiased=False)
-        norm_x = (x - mean) / torch.sqrt(var - self.eps)
+        norm_x = (x - mean) / torch.sqrt(var + self.eps)
         return self.scale * norm_x + self.shift
 
 
@@ -467,9 +470,9 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
 
     # if the data loader is empty, return NaN
     if len(data_loader) == 0:
-        return NaN
+        return float("nan")
 
-    
+
     # If num_batches is not specified, use all batches
     if num_batches is None:
         num_batches = len(data_loader)
@@ -488,7 +491,8 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
 
         total_loss += loss.item()
 
-        return total_loss / num_batches
+    # Average over the batches actually consumed
+    return total_loss / num_batches
 
 
 

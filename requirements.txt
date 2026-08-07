@@ -1,0 +1,28 @@
+# Core: needed by every notebook
+torch>=2.5.1
+tiktoken>=0.12.0
+numpy>=1.26.4,<2.0
+
+# Ch5-Ch7: plotting loss curves
+matplotlib>=3.10.0
+
+# Ch6: SMS spam dataset handling
+pandas>=2.2.0
+
+# Ch5-Ch7: downloading and reading OpenAI's GPT-2 checkpoints (src/gpt_download.py).
+# TensorFlow is used ONLY to read the original TF checkpoint format. If you skip
+# the GPT-2 weight-loading sections, you can leave it out.
+tensorflow>=2.15.0
+requests>=2.32.0
+tqdm>=4.67.0
+
+# Ch7: checks whether the local Ollama server is running (LLM-as-judge evaluation)
+psutil>=7.0.0
+
+# Running the notebooks
+jupyterlab>=4.5.0
+ipykernel>=7.0.0
+
+# Tested on Python 3.11 with:
+#   torch 2.5.1 (CUDA 12.1) - tiktoken 0.12.0 - numpy 1.26.4 - pandas 3.0.2
+#   matplotlib 3.10.8 - tensorflow 2.15.0 - tqdm 4.67.1 - requests 2.32.5 - psutil 7.2.2
